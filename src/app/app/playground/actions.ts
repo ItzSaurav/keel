@@ -17,7 +17,8 @@ export type PlaygroundRunState = {
   requestId?: string;
   durationMs?: number;
   payload?: unknown;
-  provisioned?: boolean;
+  provisionedConnection?: boolean;
+  provisionedGrant?: boolean;
 };
 
 function field(formData: FormData, key: string) {
@@ -160,6 +161,7 @@ export async function runSandboxAction(
     requestId: response.headers.get("x-request-id") ?? undefined,
     durationMs: Date.now() - started,
     payload,
-    provisioned: connection.created || grant.created,
+    provisionedConnection: connection.created,
+    provisionedGrant: grant.created,
   };
 }
