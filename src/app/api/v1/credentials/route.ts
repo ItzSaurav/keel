@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { encryptSecret } from "@/lib/crypto";
 import { resolveConnector } from "@/lib/custom-connectors";
+import { fieldGroupError } from "@/lib/credentials";
 import { auditEvent } from "@/lib/audit";
 import { serializeCredential } from "@/lib/serializers";
 import { checkPlanLimit, productionAccess } from "@/lib/limits";
@@ -107,6 +108,10 @@ export async function POST(req: Request) {
       throw new ApiError(422, "field_required", `Provide at least one of: ${requireAny.join(", ")}.`, {
         fields: requireAny,
       });
+    }
+    const groupError = fieldGroupError(connectorDef, secret);
+    if (groupError) {
+      throw new ApiError(422, "field_required", groupError.message, { fields: groupError.fields });
     }
     if (body.expiresAt && Number.isNaN(new Date(body.expiresAt).getTime())) {
       throw new ApiError(422, "invalid_expiry", "expiresAt must be a valid ISO date.");

@@ -18,7 +18,7 @@ const cursor: Connector = {
   injection: {
     type: "header",
     name: "Authorization",
-    basic: { usernameField: "api_key", passwordField: "api_key_password", allowEmptyPassword: true },
+    basic: { usernameField: "api_key", allowEmptyPassword: true },
   },
   credentialFields: [
     {

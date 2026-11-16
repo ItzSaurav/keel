@@ -21,7 +21,7 @@ function lines(value: FormDataEntryValue | null) {
 
 export async function saveConsentBrandingAction(formData: FormData) {
   const ctx = await getContext();
-  if (!ctx.can("manage_agents")) redirect("/app/settings/consent?error=permission");
+  if (!ctx.can("manage_security")) redirect("/app/settings/consent?error=permission");
 
   try {
     const logo = formData.get("logo");
@@ -65,7 +65,7 @@ export async function saveConsentBrandingAction(formData: FormData) {
 
 export async function domainVerificationAction(formData: FormData) {
   const ctx = await getContext();
-  if (!ctx.can("manage_agents")) redirect("/app/settings/consent?error=permission");
+  if (!ctx.can("manage_security")) redirect("/app/settings/consent?error=permission");
   const intent = String(formData.get("intent") ?? "start");
 
   try {

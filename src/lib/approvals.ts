@@ -13,6 +13,16 @@ import { checkPlanLimit, productionAccess } from "./limits";
 import { approvalUrlFor } from "./signed-links";
 import { recordAgentEvent, resourceTypeOf } from "./agent-events";
 import { recordPolicyEvent } from "./policy-events";
+import { crossOrgActorName } from "./actor-name";
+
+/** Approvals created before trust context was persisted can still mirror their outcome. */
+async function findApprovalTrustRelationship(environmentId: string, shadowAgentId: string) {
+  const relationship = await db.trustRelationship.findFirst({
+    where: { ownerEnvironmentId: environmentId, shadowAgentId },
+    select: { id: true },
+  });
+  return relationship?.id ?? null;
+}
 
 export async function createApprovalRequest(opts: {
   environment: Environment;
@@ -25,6 +35,9 @@ export async function createApprovalRequest(opts: {
   resource?: string;
   requestId: string;
   reason: string;
+  endUserId?: string | null;
+  endUserExternalId?: string | null;
+  trustRelationshipId?: string | null;
 }) {
   const connectorDef = await resolveConnector(opts.credential.connectorSlug, opts.environment.id);
   const action = connectorDef?.actions.find((entry) => entry.name === opts.actionName);
@@ -69,6 +82,9 @@ export async function createApprovalRequest(opts: {
       requestId: opts.requestId,
       slaDueAt,
       expiresAt: new Date(Date.now() + minutes * 60_000),
+      endUserId: opts.endUserId ?? null,
+      endUserExternalId: opts.endUserExternalId ?? null,
+      trustRelationshipId: opts.trustRelationshipId ?? null,
     },
   });
 
@@ -76,7 +92,7 @@ export async function createApprovalRequest(opts: {
     environmentId: opts.environment.id,
     actorType: "agent",
     actorId: opts.agent.id,
-    actorName: opts.agent.name,
+    actorName: crossOrgActorName(opts.agent.name, opts.agent.externalOrgName),
     agentId: opts.agent.id,
     action: "approval.requested",
     resourceType: "approval",
@@ -89,6 +105,9 @@ export async function createApprovalRequest(opts: {
       risk: opts.risk,
       reason: opts.reason,
       summary,
+      ...(opts.endUserId
+        ? { endUser: { id: opts.endUserId, externalUserId: opts.endUserExternalId ?? null } }
+        : {}),
     },
   });
 
@@ -161,6 +180,11 @@ export async function decideApproval(opts: {
   });
   if (!approval) return { ok: false, error: "Approval not found." };
   if (approval.status !== "pending") return { ok: false, error: `This request is already ${approval.status}.` };
+  const endUserId = approval.endUserId;
+  const endUserExternalId = approval.endUserExternalId;
+  const trustRelationshipId =
+    approval.trustRelationshipId ??
+    (await findApprovalTrustRelationship(approval.environmentId, approval.agentId));
   if (approval.expiresAt < new Date()) {
     const expired = await db.approvalRequest.updateMany({
       where: { id: approval.id, status: "pending" },
@@ -181,6 +205,9 @@ export async function decideApproval(opts: {
         decisionReasonCode: "approval_expired",
         isSandbox: approval.credential?.connectorSlug === "sandbox",
         credentialId: approval.credentialId,
+        endUserId,
+        endUserExternalId,
+        trustRelationshipId,
       });
     }
     return { ok: false, error: "This request has expired." };
@@ -220,7 +247,12 @@ export async function decideApproval(opts: {
       resourceId: approval.id,
       outcome: "denied",
       ip: opts.ip,
-      payloadSummary: { decision: "deny", note: opts.note ?? null, action: approval.action },
+      payloadSummary: {
+        decision: "deny",
+        note: opts.note ?? null,
+        action: approval.action,
+        ...(endUserId ? { endUser: { id: endUserId, externalUserId: endUserExternalId ?? null } } : {}),
+      },
     });
     await dispatchEvent(approval.environmentId, "approval.decided", {
       approvalId: approval.id,
@@ -246,6 +278,9 @@ export async function decideApproval(opts: {
       decisionReasonCode: "approval_denied",
       isSandbox: Boolean(denyConnector?.sandbox),
       credentialId: approval.credentialId,
+      endUserId,
+      endUserExternalId,
+      trustRelationshipId,
     });
     return { ok: true, status: "denied" };
   }
@@ -371,6 +406,7 @@ export async function decideApproval(opts: {
         kind: "grant",
         executionStatus: status,
         durationMinutes,
+        ...(endUserId ? { endUser: { id: endUserId, externalUserId: endUserExternalId ?? null } } : {}),
       },
     });
 
@@ -469,6 +505,9 @@ export async function decideApproval(opts: {
             requestId: approval.requestId,
             ip: opts.ip,
             approvalId: approval.id,
+            endUserId,
+            endUserExternalId,
+            trustRelationshipId,
             decision: {
               effect: "allow",
               risk: approval.risk,
@@ -531,6 +570,7 @@ export async function decideApproval(opts: {
       action: approval.action,
       approveAlways: Boolean(opts.approveAlways),
       executionStatus: status,
+      ...(endUserId ? { endUser: { id: endUserId, externalUserId: endUserExternalId ?? null } } : {}),
     },
   });
 
@@ -595,6 +635,11 @@ export async function expireStaleApprovals(environmentId?: string) {
       decisionReasonCode: "approval_expired",
       isSandbox: approval.credential?.connectorSlug === "sandbox",
       credentialId: approval.credentialId,
+      endUserId: approval.endUserId,
+      endUserExternalId: approval.endUserExternalId,
+      trustRelationshipId:
+        approval.trustRelationshipId ??
+        (await findApprovalTrustRelationship(approval.environmentId, approval.agentId)),
     });
   }
   return expired;

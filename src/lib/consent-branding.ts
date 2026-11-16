@@ -151,8 +151,11 @@ export async function saveConsentBranding(input: ConsentBrandingInput) {
   if (supportUrl) absoluteUrl(supportUrl, "Support URL");
   if (privacyUrl) absoluteUrl(privacyUrl, "Privacy URL");
 
-  const consentText = (input.consentText ?? "").trim().slice(0, 5000);
+  const consentText = (input.consentText ?? "").trim();
   if (!consentText) throw new ConsentBrandingError("consent_text", "Write the consent text end users will read.");
+  if (consentText.length > 1000) {
+    throw new ConsentBrandingError("consent_text", "Keep the consent text to 1,000 characters or fewer.");
+  }
 
   const existing = await db.consentBranding.findUnique({ where: { projectId: input.projectId } });
   const textChanged = existing ? existing.consentText !== consentText : true;

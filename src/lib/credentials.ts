@@ -1,6 +1,23 @@
 import { db } from "./db";
 import { encryptSecret } from "./crypto";
 import { resolveConnector } from "./custom-connectors";
+import type { Connector } from "./connectors";
+
+/** Some connectors accept more than one complete auth set, e.g. API key or account token. */
+export function fieldGroupError(connector: Connector, values: Record<string, unknown>) {
+  if (!connector.requireFieldGroups?.length) return null;
+  const present = (key: string) => String(values[key] ?? "").trim().length > 0;
+  if (connector.requireFieldGroups.some((group) => group.every(present))) return null;
+  const closest = [...connector.requireFieldGroups].sort(
+    (a, b) => a.filter((key) => !present(key)).length - b.filter((key) => !present(key)).length,
+  )[0];
+  return {
+    message: `Provide a complete ${connector.name} auth set: ${connector.requireFieldGroups
+      .map((group) => group.join(" + "))
+      .join(" or ")}.`,
+    fields: closest.filter((key) => !present(key)),
+  };
+}
 
 export type StoreCredentialInput = {
   projectId: string;
@@ -83,6 +100,17 @@ export async function storeCredential(input: StoreCredentialInput): Promise<Stor
         message: `Missing required fields for ${connector.name}: ${missing.join(", ")}.`,
         fields: missing,
       };
+    }
+    if (connector.requireFieldGroups?.length) {
+      const groupError = fieldGroupError(connector, payload);
+      if (groupError) {
+        return {
+          ok: false,
+          code: "field_required",
+          message: groupError.message,
+          fields: groupError.fields,
+        };
+      }
     }
     if (connector.requireAnyFields?.length && !connector.requireAnyFields.some((key) => payload[key])) {
       return {

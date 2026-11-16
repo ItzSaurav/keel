@@ -649,6 +649,7 @@ export async function createOAuthCredential(input: {
   name?: string;
   /** When set, the credential belongs to an end user and is never listed for the org. */
   endUserId?: string | null;
+  endUserExternalId?: string | null;
   endUserAccount?: string | null;
 }) {
   const environment = await db.environment.findUnique({
@@ -714,11 +715,12 @@ export async function createOAuthCredential(input: {
     outcome: "recorded",
     payloadSummary: {
       connector: input.connectorSlug,
-      name: credential.name,
       source: input.client.source,
       scopes: input.tokens.scopes.slice(0, 20),
       refreshable: Boolean(input.tokens.refreshToken),
-      ...(endUserId ? { endUserId } : {}),
+      ...(endUserId
+        ? { endUser: { id: endUserId, externalUserId: input.endUserExternalId ?? null } }
+        : {}),
     },
   }).catch(() => null);
 

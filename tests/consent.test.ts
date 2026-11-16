@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DURATION_OPTIONS,
+  actionsForScope,
   assertAllowedRedirect,
   consentExpiry,
   consentIsActive,
@@ -14,6 +15,7 @@ import {
   scopeActionPattern,
   scopeConnectorSlug,
 } from "../src/lib/consent";
+import { CONNECTORS } from "../src/lib/connectors";
 import {
   LOGO_MAX_BYTES,
   ConsentBrandingError,
@@ -51,6 +53,30 @@ test("scopes split into connector and action patterns", () => {
   assert.equal(scopeConnectorSlug("messages.send"), "messages");
   assert.equal(scopeActionPattern("gmail.messages.send", "gmail"), "messages.send");
   assert.equal(scopeActionPattern("messages.send", "gmail"), "messages.send");
+});
+
+test("consent scopes match the connector's real action names", () => {
+  const slack = CONNECTORS.find((connector) => connector.slug === "slack")!;
+  assert.deepEqual(
+    actionsForScope(slack, "slack.post_message").map((action) => action.name),
+    ["slack.post_message"],
+  );
+  assert.deepEqual(
+    actionsForScope(slack, "slack.*").map((action) => action.name),
+    slack.actions.map((action) => action.name),
+  );
+  assert.deepEqual(actionsForScope(slack, "post_message").map((action) => action.name), ["slack.post_message"]);
+  assert.deepEqual(actionsForScope(slack, "github.create_issue"), []);
+
+  const google = CONNECTORS.find((connector) => connector.slug === "google")!;
+  assert.deepEqual(
+    actionsForScope(google, "gmail.send_message").map((action) => action.name),
+    ["gmail.send_message"],
+  );
+  assert.deepEqual(
+    actionsForScope(google, "gmail.*").map((action) => action.name),
+    google.actions.filter((action) => action.name.startsWith("gmail.")).map((action) => action.name),
+  );
 });
 
 test("an end-user token may only use its own connection", () => {

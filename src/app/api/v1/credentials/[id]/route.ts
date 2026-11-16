@@ -10,6 +10,8 @@ import {
   requireSecretKey,
 } from "@/lib/api";
 import { encryptSecret } from "@/lib/crypto";
+import { resolveConnector } from "@/lib/custom-connectors";
+import { fieldGroupError } from "@/lib/credentials";
 import { auditEvent } from "@/lib/audit";
 import { dispatchEvent } from "@/lib/webhooks";
 import { serializeCredential } from "@/lib/serializers";
@@ -89,6 +91,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
                   : "token"]: incoming,
             }
           : incoming;
+      const connectorDef = await resolveConnector(credential.connectorSlug, auth.environment.id);
+      const groupError = connectorDef ? fieldGroupError(connectorDef, secret) : null;
+      if (groupError) {
+        throw new ApiError(422, "field_required", groupError.message, { fields: groupError.fields });
+      }
       const hintSource =
         (secret.apiKey as string) ||
         (secret.token as string) ||

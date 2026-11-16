@@ -7,6 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { CONNECTORS } from "../src/lib/connectors";
 import {
+  CREDENTIAL_GROUP_ALTERNATIVES,
   CREDENTIAL_GROUPS,
   SECRET_PATTERNS,
   SECRET_PATTERN_VERSION,
@@ -22,6 +23,7 @@ import {
   unmappedSecret,
 } from "../shared/scan-core";
 import { assertCleanGitTree, findingsToGroups, rewriteSources, scanPaths } from "../cli/src/scan";
+import { fieldGroupError } from "../src/lib/credentials";
 import { readSource } from "./helpers/source";
 
 const IMPORT_ACTION = readSource("src/app/app/vault/import/actions.ts");
@@ -91,6 +93,7 @@ const LOOKALIKES: Record<string, string> = {
 const NAME_ONLY: Record<string, { name: string; value: string }> = {
   "razorpay-key-secret": { name: "RAZORPAY_KEY_SECRET", value: "k3Y9zP2mQ7tR4vW8xN5b" },
   "twilio-api-key-secret": { name: "TWILIO_API_KEY_SECRET", value: "a7B2c9D4e1F8g5H3j6K0" },
+  "twilio-auth-token": { name: "TWILIO_AUTH_TOKEN", value: "a7B2c9D4e1F8g5H3j6K0" },
   "vercel-token": { name: "VERCEL_TOKEN", value: "Zx8Qw2Er9Ty4Ui7Op1As" },
   "cloudflare-token": { name: "CLOUDFLARE_API_TOKEN", value: "Zx8Qw2Er9Ty4Ui7Op1As" },
 };
@@ -101,7 +104,7 @@ function fixture(): string {
 
 test("pattern file is versioned and every value pattern matches its sample", () => {
   assert.equal(SECRET_PATTERN_VERSION, 1);
-  assert.equal(SECRET_PATTERNS.length, 29);
+  assert.equal(SECRET_PATTERNS.length, 30);
   for (const pattern of SECRET_PATTERNS) {
     if (pattern.valuePattern) {
       const sample = VALUE_SAMPLES[pattern.id];
@@ -143,6 +146,18 @@ test("patterns reference real connectors and grouped fields exist in manifests",
         connector.credentialFields?.some((entry) => entry.key === field),
         `${slug}.${field} is grouped but not declared in the manifest`,
       );
+    }
+  }
+  for (const [slug, groups] of Object.entries(CREDENTIAL_GROUP_ALTERNATIVES)) {
+    const connector = bySlug.get(slug);
+    assert.ok(connector, `group alternatives for unknown connector ${slug}`);
+    for (const group of groups) {
+      for (const field of group) {
+        assert.ok(
+          connector.credentialFields?.some((entry) => entry.key === field),
+          `${slug}.${field} is in an alternative group but not declared in the manifest`,
+        );
+      }
     }
   }
 });
@@ -234,6 +249,48 @@ test("multi-field findings group into one complete connector credential", () => 
   const partial = groupFindings(detectEnv(`SHOPIFY_ACCESS_TOKEN=${SHOPIFY_TOKEN}`));
   assert.equal(partial[0].complete, false);
   assert.deepEqual(partial[0].missing, ["shop_domain"]);
+});
+
+test("Twilio accepts either API key SID + secret or account SID + auth token", () => {  const accountSid = VALUE_SAMPLES["twilio-account-sid"];
+  const apiKeySid = VALUE_SAMPLES["twilio-api-key-sid"];
+  const authToken = NAME_ONLY["twilio-auth-token"].value;
+
+  const tokenGroup = groupFindings(detectEnv([`TWILIO_ACCOUNT_SID=${accountSid}`, `TWILIO_AUTH_TOKEN=${authToken}`].join("\n")));
+  assert.equal(tokenGroup.length, 1);
+  assert.equal(tokenGroup[0].connector, "twilio");
+  assert.equal(tokenGroup[0].complete, true);
+  assert.deepEqual(Object.keys(tokenGroup[0].fields).sort(), ["account_sid", "auth_token"]);
+  assert.deepEqual(tokenGroup[0].missing, []);
+
+  const keyGroup = groupFindings(
+    detectEnv(
+      [
+        `TWILIO_ACCOUNT_SID=${accountSid}`,
+        `TWILIO_API_KEY_SID=${apiKeySid}`,
+        "TWILIO_API_KEY_SECRET=a7B2c9D4e1F8g5H3j6K0",
+      ].join("\n"),
+    ),
+  );
+  assert.equal(keyGroup[0].complete, true);
+
+  const partial = groupFindings(detectEnv(`TWILIO_ACCOUNT_SID=${accountSid}\nTWILIO_API_KEY_SID=${apiKeySid}`));
+  assert.equal(partial[0].complete, false);
+  assert.ok(partial[0].missing.includes("api_key_secret") || partial[0].missing.includes("auth_token"));
+});
+
+test("credential writes require one complete auth group", () => {
+  const twilio = CONNECTORS.find((connector) => connector.slug === "twilio");
+  assert.ok(twilio);
+  assert.equal(fieldGroupError(twilio, { account_sid: "AC1", api_key_sid: "SK1", api_key_secret: "secret" }), null);
+  assert.equal(fieldGroupError(twilio, { account_sid: "AC1", auth_token: "token" }), null);
+  assert.deepEqual(fieldGroupError(twilio, { account_sid: "AC1", api_key_sid: "SK1" }), {
+    message: "Provide a complete Twilio auth set: api_key_sid + api_key_secret or account_sid + auth_token.",
+    fields: ["api_key_secret"],
+  });
+  assert.deepEqual(fieldGroupError(twilio, { account_sid: "AC1" }), {
+    message: "Provide a complete Twilio auth set: api_key_sid + api_key_secret or account_sid + auth_token.",
+    fields: ["auth_token"],
+  });
 });
 
 test("live keys cannot be imported into a development environment", () => {

@@ -9,6 +9,7 @@ import { notifyApprovers } from "./notifications";
 import { emailLayout, sendEmail } from "./email";
 import { approvalSlaFor, envSettings } from "./policy";
 import { approvalUrlFor } from "./signed-links";
+import { crossOrgActorName } from "./actor-name";
 
 const RISK_ORDER: Record<Risk, number> = { read: 1, write: 2, admin: 3, destructive: 4, financial: 5 };
 
@@ -152,7 +153,7 @@ export async function requestJustInTimeGrant(opts: {
     environmentId: opts.environment.id,
     actorType: "agent",
     actorId: opts.agent.id,
-    actorName: opts.agent.name,
+    actorName: crossOrgActorName(opts.agent.name, opts.agent.externalOrgName),
     agentId: opts.agent.id,
     action: "grant.requested",
     resourceType: "grant",

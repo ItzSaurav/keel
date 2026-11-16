@@ -35,6 +35,7 @@ export default async function ImportEnvPage({
         required: Boolean(field.required),
         secret: Boolean(field.secret),
       })),
+      requireFieldGroups: connector.requireFieldGroups ?? [],
     }));
 
   const ids = (query.imported ?? "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 20);

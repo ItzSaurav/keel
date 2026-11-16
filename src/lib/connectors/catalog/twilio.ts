@@ -21,7 +21,11 @@ const twilio: Connector = {
   injection: {
     type: "header",
     name: "Authorization",
-    basic: { usernameField: "api_key_sid", passwordField: "api_key_secret" },
+    basic: {
+      usernameField: "api_key_sid",
+      passwordField: "api_key_secret",
+      alternate: [{ usernameField: "account_sid", passwordField: "auth_token" }],
+    },
   },
   bodyFormat: "form",
   credentialFields: [
@@ -29,11 +33,21 @@ const twilio: Connector = {
     {
       key: "api_key_sid",
       label: "API key SID",
-      required: true,
       placeholder: "SK…",
       help: "Recommended over the account auth token. Used as the Basic auth username.",
     },
-    { key: "api_key_secret", label: "API key secret", secret: true, required: true },
+    { key: "api_key_secret", label: "API key secret", secret: true, help: "Used with the API key SID." },
+    {
+      key: "auth_token",
+      label: "Account auth token",
+      secret: true,
+      help: "Used with the Account SID when you do not have an API key.",
+    },
+  ],
+  requireAnyFields: ["api_key_secret", "auth_token"],
+  requireFieldGroups: [
+    ["api_key_sid", "api_key_secret"],
+    ["account_sid", "auth_token"],
   ],
   scopes: [
     { value: "messages", label: "Send and read messages" },

@@ -12,6 +12,7 @@ import { refreshCredentialIfNeeded } from "./oauth-connect";
 import { endSpanError, endSpanOk, startSpan, traceIdOf } from "./tracing";
 import { redact, redactedFieldNames, redactDeep, secretValues } from "./redaction";
 import { recordAgentEvent, resourceTypeOf, upstreamStatusClass } from "./agent-events";
+import { crossOrgActorName } from "./actor-name";
 
 export type ExecutionResult = {
   status: number;
@@ -330,7 +331,7 @@ async function executeSandboxCall(opts: {
     environmentId: environment.id,
     actorType: agent ? "agent" : "system",
     actorId: agent?.id ?? null,
-    actorName: agent?.name ?? "Sandbox",
+    actorName: agent ? crossOrgActorName(agent.name, agent.externalOrgName) : "Sandbox",
     agentId: agent?.id ?? null,
     action: "sandbox.call",
     resourceType: "connector",
@@ -397,6 +398,7 @@ async function executeSandboxCall(opts: {
       isSandbox: true,
       credentialId: credential.id,
       endUserId: opts.endUserId ?? null,
+      endUserExternalId: opts.endUserExternalId ?? null,
       trustRelationshipId: opts.trustRelationshipId ?? null,
       approvalLatencyMs: await approvalLatency(opts.approvalId),
     });
@@ -464,11 +466,7 @@ export async function executeAction(opts: {
     agent?.kind === "external" && agent.externalOrgName
       ? { externalAgentId: agent.externalAgentId, externalOrgName: agent.externalOrgName }
       : null;
-  const actorName = agent
-    ? crossOrg && !agent.name.includes(`(${crossOrg.externalOrgName})`)
-      ? `${agent.name} (via ${crossOrg.externalOrgName})`
-      : agent.name
-    : "Credential health check";
+  const actorName = agent ? crossOrgActorName(agent.name, crossOrg?.externalOrgName) : "Credential health check";
 
   if (credential.type === "oauth" && credential.refreshable) {
     credential = await refreshCredentialIfNeeded(credential);
@@ -523,12 +521,27 @@ export async function executeAction(opts: {
   }
 
   if (injection.basic) {
-    const username = fieldValue(secret, injection.basic.usernameField) || fieldValue(secret, "username");
-    const password = fieldValue(secret, injection.basic.passwordField) || fieldValue(secret, "password");
-    if (!username || (!password && !injection.basic.allowEmptyPassword)) {
+    const candidates = [
+      {
+        usernameField: injection.basic.usernameField,
+        passwordField: injection.basic.passwordField,
+        allowEmptyPassword: injection.basic.allowEmptyPassword,
+      },
+      ...(injection.basic.alternate ?? []),
+    ];
+    const selected = candidates
+      .map((pair) => ({
+        ...pair,
+        username: fieldValue(secret, pair.usernameField) || fieldValue(secret, "username"),
+        password: pair.passwordField
+          ? fieldValue(secret, pair.passwordField) || fieldValue(secret, "password")
+          : "",
+      }))
+      .find((pair) => pair.username && (pair.password || pair.allowEmptyPassword));
+    if (!selected) {
       throw new Error("The stored basic-auth credential is incomplete.");
     }
-    headers.Authorization = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+    headers.Authorization = `Basic ${Buffer.from(`${selected.username}:${selected.password}`).toString("base64")}`;
     injectedHeaders.push("Authorization");
   }
 
@@ -575,9 +588,12 @@ export async function executeAction(opts: {
             : null,
         source: authSource,
       };
+  const basicSecretFields = injection.basic
+    ? [injection.basic.passwordField, ...(injection.basic.alternate ?? []).map((pair) => pair.passwordField)]
+    : [];
   const responseSecrets = secretValues(
     secret,
-    [action.authField, injection.basic?.passwordField].filter((key): key is string => Boolean(key)),
+    [action.authField, ...basicSecretFields].filter((key): key is string => Boolean(key)),
   );
   if (token && token.length >= 8 && !responseSecrets.includes(token)) responseSecrets.push(token);
 
@@ -800,6 +816,7 @@ export async function executeAction(opts: {
         isSandbox: false,
         credentialId: credential.id,
         endUserId: opts.endUserId ?? null,
+        endUserExternalId: opts.endUserExternalId ?? null,
         trustRelationshipId: opts.trustRelationshipId ?? null,
         approvalLatencyMs: await approvalLatency(opts.approvalId),
       });
@@ -907,6 +924,7 @@ export async function executeAction(opts: {
       isSandbox: false,
       credentialId: credential.id,
       endUserId: opts.endUserId ?? null,
+      endUserExternalId: opts.endUserExternalId ?? null,
       trustRelationshipId: opts.trustRelationshipId ?? null,
       approvalLatencyMs: await approvalLatency(opts.approvalId),
     });

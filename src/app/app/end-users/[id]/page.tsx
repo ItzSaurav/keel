@@ -204,15 +204,23 @@ export default async function EndUserPage({
                         {request.completedAt ? ` · completed ${formatDate(request.completedAt)}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={request.status} />
                       {request.status === "open" && canManagePrivacy ? (
-                        <form action={completeDataRequestAction}>
-                          <input type="hidden" name="requestId" value={request.id} />
-                          <button type="submit" className="border border-black bg-black px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white dark:border-foreground dark:bg-foreground dark:text-background">
-                            Mark complete
-                          </button>
-                        </form>
+                        <>
+                          <a
+                            href={`/app/end-users/${endUser.id}/export?request=${request.id}`}
+                            className="border border-black/45 px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] hover:border-black dark:border-white/40"
+                          >
+                            Export
+                          </a>
+                          <form action={completeDataRequestAction}>
+                            <input type="hidden" name="requestId" value={request.id} />
+                            <button type="submit" className="border border-black bg-black px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white dark:border-foreground dark:bg-foreground dark:text-background">
+                              Mark complete
+                            </button>
+                          </form>
+                        </>
                       ) : null}
                     </div>
                   </li>

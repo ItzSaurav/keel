@@ -1,8 +1,8 @@
-import type { Agent, Consent, ConsentBranding, ConsentRequest, EndUser } from "@prisma/client";
+import type { Agent, Consent, ConsentBranding, ConsentRequest, EndUser, Prisma } from "@prisma/client";
 import { db } from "./db";
 import { ApiError } from "./api";
 import { globMatch } from "./policy";
-import { resolveConnector } from "./custom-connectors";
+import { loadConnectorMap, resolveConnector } from "./custom-connectors";
 import type { Connector, ConnectorAction, Risk } from "./connectors";
 import { randomToken, sha256 } from "./crypto";
 import { signAgentToken } from "./jwt";
@@ -83,9 +83,19 @@ export function credentialOwnershipError(
 
 export function actionsForScope(connector: Connector, scope: string): ConnectorAction[] {
   const pattern = scopeActionPattern(scope, connector.slug);
-  return connector.actions.filter(
-    (action) => action.name === pattern || globMatch(pattern, action.name),
-  );
+  return connector.actions.filter((action) => {
+    const local = action.name.startsWith(`${connector.slug}.`)
+      ? action.name.slice(connector.slug.length + 1)
+      : action.name;
+    return (
+      action.name === scope ||
+      action.name === pattern ||
+      local === pattern ||
+      globMatch(scope, action.name) ||
+      globMatch(pattern, action.name) ||
+      globMatch(pattern, local)
+    );
+  });
 }
 
 export function durationOptionsFor(maxGrantDays: number): ConsentDuration[] {
@@ -184,11 +194,24 @@ export async function validateConsentRequest(input: {
   const maxRiskRank = riskRank(branding.maxRisk);
 
   const matched = new Map<string, ConsentScopePlan>();
+  const connectorMap = await loadConnectorMap(input.environmentId);
   for (const scope of scopes) {
     const slug = scopeConnectorSlug(scope);
     if (!slug) throw new ApiError(422, "scope_unknown", `“${scope}” is not a valid action scope.`);
-    const connector = await resolveConnector(slug, input.environmentId);
+    const named = connectorMap.get(slug) ?? null;
+    let connector = named && actionsForScope(named, scope).length ? named : null;
     if (!connector) {
+      for (const candidate of connectorMap.values()) {
+        if (actionsForScope(candidate, scope).length) {
+          connector = candidate;
+          break;
+        }
+      }
+    }
+    if (!connector) {
+      if (named) {
+        throw new ApiError(422, "scope_unknown", `“${scope}” does not match any ${named.name} action.`);
+      }
       throw new ApiError(422, "connector_not_found", `“${slug}” is not a connector in this environment.`);
     }
     const actions = actionsForScope(connector, scope);
@@ -335,7 +358,6 @@ export async function loadConsentPage(token: string): Promise<
     if (!connector) continue;
     const seen = new Set<string>();
     for (const scope of scopes) {
-      if (scopeConnectorSlug(scope) !== slug) continue;
       for (const action of actionsForScope(connector, scope)) {
         if (seen.has(action.name)) continue;
         seen.add(action.name);
@@ -395,7 +417,6 @@ export async function approvedActionsFor(
     if (!connector) continue;
     const actions = new Set<string>();
     for (const scope of scopes) {
-      if (scopeConnectorSlug(scope) !== slug) continue;
       for (const action of actionsForScope(connector, scope)) {
         if (selected.has(action.risk as Risk)) actions.add(action.name);
       }
@@ -639,16 +660,19 @@ export function consentIsActive(consent: Consent, now = new Date()) {
   return !consent.revokedAt && (!consent.expiresAt || consent.expiresAt > now);
 }
 
-export async function mintConsentToken(consentId: string) {
-  const consent = await db.consent.findUnique({ where: { id: consentId } });
+export async function mintConsentToken(
+  consentId: string,
+  store: Prisma.TransactionClient | typeof db = db,
+) {
+  const consent = await store.consent.findUnique({ where: { id: consentId } });
   if (!consent) throw new ApiError(404, "consent_not_found", "No consent with that ID exists.");
   if (!consentIsActive(consent)) {
     throw new ApiError(409, "consent_inactive", "This consent was revoked or expired. The end user must approve again.");
   }
   const [endUser, agent, environment] = await Promise.all([
-    db.endUser.findUnique({ where: { id: consent.endUserId } }),
-    db.agent.findUnique({ where: { id: consent.agentId } }),
-    db.environment.findUnique({
+    store.endUser.findUnique({ where: { id: consent.endUserId } }),
+    store.agent.findUnique({ where: { id: consent.agentId } }),
+    store.environment.findUnique({
       where: { id: consent.environmentId },
       include: { project: { include: { org: true } } },
     }),
