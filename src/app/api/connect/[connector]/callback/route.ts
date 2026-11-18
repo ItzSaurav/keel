@@ -99,6 +99,7 @@ export async function GET(
         tokens,
         profile,
         endUserId: endUser.id,
+        endUserExternalId: endUser.externalUserId,
         endUserAccount: endUser.email ?? endUser.externalUserId,
       });
       return fail(`connected=${encodeURIComponent(connectorSlug)}`);

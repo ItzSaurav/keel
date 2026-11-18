@@ -101,6 +101,7 @@ export type AgentEventInput = {
   contributes?: boolean;
   credentialId?: string | null;
   endUserId?: string | null;
+  endUserExternalId?: string | null;
   /** When set, the write is mirrored to the external agent's environment. */
   trustRelationshipId?: string | null;
 };
@@ -128,6 +129,7 @@ export type AgentEventRow = {
   contributes: boolean;
   credentialId: string | null;
   endUserId: string | null;
+  endUserExternalId: string | null;
 };
 
 /**
@@ -157,6 +159,7 @@ export const AGENT_EVENT_FIELDS = [
   "contributes",
   "credentialId",
   "endUserId",
+  "endUserExternalId",
 ] as const;
 
 export function buildAgentEventRow(input: AgentEventInput): AgentEventRow {
@@ -189,6 +192,7 @@ export function buildAgentEventRow(input: AgentEventInput): AgentEventRow {
     contributes: Boolean(input.contributes),
     credentialId: input.credentialId ?? null,
     endUserId: input.endUserId ?? null,
+    endUserExternalId: input.endUserExternalId ?? null,
   };
 }
 
@@ -259,6 +263,8 @@ async function mirrorTrustAudit(input: AgentEventInput) {
       action: input.action,
       outcome: input.decision,
       requestId: input.requestId,
+      endUserId: input.endUserId ?? null,
+      endUserExternalId: input.endUserExternalId ?? null,
     },
   });
 }

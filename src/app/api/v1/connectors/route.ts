@@ -43,6 +43,7 @@ function serializeCatalogConnector(connector: Connector) {
       { key: "secret", label: "Secret", secret: true, required: true },
     ],
     requireAnyFields: connector.requireAnyFields ?? [],
+    requireFieldGroups: connector.requireFieldGroups ?? [],
     hosts: connector.hosts,
     injection: connector.injection,
     scopes: connector.scopes,

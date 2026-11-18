@@ -57,7 +57,27 @@ for (const connector of CONNECTORS) {
   for (const key of connector.requireAnyFields ?? []) {
     if (!keys.has(key)) fail(`${where}: requireAnyFields references unknown field "${key}"`);
   }
+  for (const group of connector.requireFieldGroups ?? []) {
+    if (!group.length) fail(`${where}: requireFieldGroups contains an empty group`);
+    for (const key of group) {
+      if (!keys.has(key)) fail(`${where}: requireFieldGroups references unknown field "${key}"`);
+    }
+  }
   checkFieldRefs(connector, "injection.field", connector.injection.field, keys);
+  if (connector.injection.basic) {
+    checkFieldRefs(connector, "injection.basic.usernameField", connector.injection.basic.usernameField, keys);
+    checkFieldRefs(connector, "injection.basic.passwordField", connector.injection.basic.passwordField, keys);
+    if (!connector.injection.basic.passwordField && !connector.injection.basic.allowEmptyPassword) {
+      fail(`${where}: injection.basic needs a passwordField unless allowEmptyPassword is set`);
+    }
+    for (const alternate of connector.injection.basic.alternate ?? []) {
+      checkFieldRefs(connector, "injection.basic.alternate.usernameField", alternate.usernameField, keys);
+      checkFieldRefs(connector, "injection.basic.alternate.passwordField", alternate.passwordField, keys);
+      if (!alternate.passwordField && !alternate.allowEmptyPassword) {
+        fail(`${where}: injection.basic.alternate needs a passwordField unless allowEmptyPassword is set`);
+      }
+    }
+  }
   checkFieldRefs(connector, "baseUrlField", connector.baseUrlField, keys);
   if (connector.hostTemplate) {
     for (const [, name] of connector.hostTemplate.matchAll(/\{(\w+)\}/g)) {

@@ -23,6 +23,8 @@ This repository contains the hosted application and documentation site, the Type
 | `cli/` | `@authab/cli`: the `authab` terminal client |
 | `mcp/` | `@authab/mcp`: MCP stdio server with governed tools |
 | `src/app/api/mcp/` | Hosted MCP gateway (Streamable HTTP) and public registry manifest |
+| `docs/architecture/` | Production system design for 10M users and small-team operations |
+| `docs/launch/` | Launch requirement sheet, user journeys and user-flow diagrams |
 | `docs/operations/` | Backup/restore and load-test runbooks, including recorded baselines |
 | `scripts/` | Backup, restore, and load-test utilities used by the npm scripts |
 | `.github/workflows/` | CI: typecheck, unit tests, connector checks, package builds, and a production build |

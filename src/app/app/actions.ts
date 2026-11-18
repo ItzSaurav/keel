@@ -21,7 +21,7 @@ import {
   resolveConnector,
   rollbackCustomConnector,
 } from "@/lib/custom-connectors";
-import { storeCredential } from "@/lib/credentials";
+import { fieldGroupError, storeCredential } from "@/lib/credentials";
 import {
   createCheckoutSession,
   createPortalSession,
@@ -453,6 +453,7 @@ export async function rotateCredentialAction(formData: FormData) {
     if (connectorDef.requireAnyFields?.length && !connectorDef.requireAnyFields.some((key) => payload[key])) {
       redirect(`${back}?error=secret`);
     }
+    if (fieldGroupError(connectorDef, payload)) redirect(`${back}?error=secret`);
     sealed = await encryptSecret(ctx.project.id, payload);
   } else {
     const secret = str(formData, "secret");

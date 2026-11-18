@@ -181,3 +181,42 @@ test("external agents can never use consent-branding or verification bypasses", 
   assert.match(policy, /source = "external_agent"/);
   assert.match(policy, /External agents need approval for every non-read action/);
 });
+
+test("consent settings require manage_security and text stops at 1,000 characters", () => {
+  const actions = readSource("src/app/app/settings/consent/actions.ts");
+  assert.equal((actions.match(/manage_security/g) ?? []).length, 2);
+  assert.doesNotMatch(actions, /manage_agents/);
+  const page = readSource("src/app/app/settings/consent/page.tsx");
+  assert.match(page, /canEdit = ctx\.can\("manage_security"\)/);
+  assert.match(page, /maxLength=\{1000\}/);
+  const branding = readSource("src/lib/consent-branding.ts");
+  assert.match(branding, /consentText\.length > 1000/);
+  assert.doesNotMatch(branding, /slice\(0, 5000\)/);
+});
+
+test("hosted consent shows the verified domain and redirect host", () => {
+  assert.match(CONSENT_PAGE, /new URL\(data\.request\.redirectUri\)\.hostname/);
+  assert.match(CONSENT_PAGE, /Returns to \{redirectHost\}/);
+  assert.match(CONSENT_PAGE, /branding\.domainVerifiedAt && branding\.verifiedDomain/);
+  assert.match(CONSENT_PAGE, /Verified domain · \{branding\.verifiedDomain\}/);
+});
+
+test("consent code exchange claims and mints in one transaction", () => {
+  const token = readSource("src/app/api/v1/consent/token/route.ts");
+  assert.match(token, /db\.\$transaction\(async \(tx\) =>/);
+  assert.match(token, /tx\.consentRequest\.updateMany\(/);
+  assert.match(token, /return mintConsentToken\(consentId, tx\)/);
+  assert.doesNotMatch(token, /await mintConsentToken\(consentId\)/);
+});
+
+test("end-user exports are permissioned, metadata-only and audited", () => {
+  const exportRoute = readSource("src/app/app/end-users/[id]/export/route.ts");
+  assert.match(exportRoute, /app\.can\("manage_security"\)/);
+  assert.match(exportRoute, /select: \{[\s\S]*?connectorSlug: true[\s\S]*?\}/);
+  assert.doesNotMatch(exportRoute, /encryptedPayload|dataKeyEncrypted/);
+  assert.match(exportRoute, /action: "end_user\.exported"/);
+  assert.match(exportRoute, /"cache-control": "no-store"/);
+  assert.match(exportRoute, /take: 5000/);
+  const page = readSource("src/app/app/end-users/[id]/page.tsx");
+  assert.match(page, /\/export\?request=\$\{request\.id\}/);
+});

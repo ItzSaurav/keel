@@ -42,15 +42,17 @@ export async function POST(req: Request) {
       throw new ApiError(409, "consent_inactive", "This consent was revoked or expired before the code was used.");
     }
 
-    const claimed = await db.consentRequest.updateMany({
-      where: { id: request.id, status: "approved" },
-      data: { status: "exchanged", completedAt: new Date() },
+    const consentId = request.consentId;
+    const minted = await db.$transaction(async (tx) => {
+      const claimed = await tx.consentRequest.updateMany({
+        where: { id: request.id, status: "approved" },
+        data: { status: "exchanged", completedAt: new Date() },
+      });
+      if (!claimed.count) {
+        throw new ApiError(409, "code_used", "This code was already exchanged. Start a new consent request.");
+      }
+      return mintConsentToken(consentId, tx);
     });
-    if (!claimed.count) {
-      throw new ApiError(409, "code_used", "This code was already exchanged. Start a new consent request.");
-    }
-
-    const minted = await mintConsentToken(request.consentId);
     return apiOk({
       agentToken: minted.issued.token,
       expiresIn: CONSENT_TOKEN_TTL_SECONDS,

@@ -9,7 +9,7 @@ import {
 } from "@/lib/api";
 import { auditEvent } from "@/lib/audit";
 import { dispatchEvent } from "@/lib/webhooks";
-import { issueIdentityDocumentSafe } from "@/lib/identity-document";
+import { issueIdentityDocumentWith } from "@/lib/identity-document";
 import { serializeAgent } from "@/lib/serializers";
 import { shadowAgentName } from "@/lib/trust-engine";
 
@@ -80,6 +80,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           acceptedAt: new Date(),
         },
       });
+      const identityDocument = await issueIdentityDocumentWith(tx, shadow.id);
+      if (!identityDocument) {
+        throw new ApiError(409, "identity_issue_failed", "The shadow agent could not be issued an identity document.");
+      }
       return { shadow, updated };
     });
 
@@ -126,8 +130,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       ownerOrgName: ownerOrg.name,
       shadowAgentId: shadow.id,
     }).catch(() => null);
-
-    await issueIdentityDocumentSafe(shadow.id).catch(() => null);
 
     return apiOk({
       id: updated.id,

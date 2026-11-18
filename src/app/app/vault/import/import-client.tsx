@@ -10,6 +10,7 @@ export type ConnectorOption = {
   authTypes: string[];
   defaultAuth: string;
   fields: { key: string; label: string; required: boolean; secret: boolean }[];
+  requireFieldGroups: string[][];
 };
 
 type Override = { connector?: string; type?: string; include?: boolean };
@@ -62,6 +63,12 @@ function buildRow(
         if (required.length === 1) fields[required[0].key] = group.findings[0].value;
       }
       missing = option.fields.filter((field) => field.required && !fields[field.key]).map((field) => field.key);
+      if (option.requireFieldGroups.length && !option.requireFieldGroups.some((group) => group.every((key) => fields[key]))) {
+        const closest = [...option.requireFieldGroups].sort(
+          (a, b) => a.filter((key) => !fields[key]).length - b.filter((key) => !fields[key]).length,
+        )[0];
+        missing = [...new Set([...missing, ...closest.filter((key) => !fields[key])])];
+      }
     }
   }
 
@@ -83,7 +90,7 @@ function buildRow(
   }
   if (option && missing.length) {
     const labels = missing.map((fieldKey) => option.fields.find((field) => field.key === fieldKey)?.label ?? fieldKey);
-    warnings.add(`Missing required ${labels.join(", ")}. Add the connection manually or include those variables.`);
+    warnings.add(`Missing ${labels.join(", ")}. Add the connection manually or include those variables.`);
   }
 
   const hints = group.findings.map((finding) => classifyEntry("", finding.value)?.environmentHint ?? finding.environmentHint ?? null);

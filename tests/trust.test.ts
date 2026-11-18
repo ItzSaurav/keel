@@ -103,7 +103,9 @@ test("accept creates an unkeyed shadow agent and an identity document", () => {
   assert.match(ACCEPT, /publicKey: null/);
   assert.match(ACCEPT, /fingerprint: external\.fingerprint/);
   assert.match(ACCEPT, /externalAgentId: external\.id/);
-  assert.match(ACCEPT, /issueIdentityDocumentSafe\(shadow\.id\)/);
+  assert.match(ACCEPT, /issueIdentityDocumentWith\(tx, shadow\.id\)/);
+  assert.doesNotMatch(ACCEPT, /issueIdentityDocumentSafe/);
+  assert.match(ACCEPT, /if \(!identityDocument\)[\s\S]*?throw new ApiError\(409, "identity_issue_failed"/);
   assert.match(ACCEPT, /relationship\.externalEnvironmentId !== auth\.environment\.id/);
   assert.match(ACCEPT, /"trust\.accepted"/);
   assert.doesNotMatch(ACCEPT, /agentKey\.create/);
@@ -162,4 +164,26 @@ test("shadow agent calls mirror an audit event to the external environment", () 
   assert.match(events, /ownerOrgName/);
   assert.match(events, /connector: input\.connectorSlug/);
   assert.match(events, /action: "trust\.outbound_call"/);
+  assert.match(events, /endUserExternalId: input\.endUserExternalId \?\? null/);
+});
+
+test("approval outcomes keep end-user and trust context", () => {
+  const approvals = readSource("src/lib/approvals.ts");
+  const schema = readSource("prisma/schema.prisma");
+  const proxyRoute = readSource("src/app/api/v1/proxy/[connector]/route.ts");
+  for (const field of ["endUserId", "endUserExternalId", "trustRelationshipId"]) {
+    assert.match(schema, new RegExp(`model ApprovalRequest[\\s\\S]*?${field}\\s+String\\?`));
+  }
+  assert.match(approvals, /endUserId: opts\.endUserId \?\? null/);
+  assert.match(approvals, /endUserExternalId: opts\.endUserExternalId \?\? null/);
+  assert.match(approvals, /trustRelationshipId: opts\.trustRelationshipId \?\? null/);
+  assert.match(approvals, /const trustRelationshipId =[\s\S]{0,160}?approval\.trustRelationshipId \?\?/);
+  assert.match(approvals, /executeAction\(\{[\s\S]*?endUserId,[\s\S]*?endUserExternalId,[\s\S]*?trustRelationshipId,/);
+  assert.match(proxyRoute, /createApprovalRequest\(\{[\s\S]*?endUserId,[\s\S]*?endUserExternalId,[\s\S]*?trustRelationshipId,/);
+});
+
+test("credential audit never copies an end-user email from the display name", () => {
+  const oauth = readSource("src/lib/oauth-connect.ts");
+  assert.match(oauth, /endUser: \{ id: endUserId, externalUserId: input\.endUserExternalId \?\? null \}/);
+  assert.doesNotMatch(oauth, /payloadSummary: \{[\s\S]*?name: credential\.name/);
 });

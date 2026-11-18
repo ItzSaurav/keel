@@ -13,12 +13,18 @@ export type CredentialField = {
   help?: string;
 };
 
+export type BasicAuthPair = {
+  usernameField: string;
+  passwordField?: string;
+  allowEmptyPassword?: boolean;
+};
+
 export type ConnectorInjection = {
   type: "header" | "query";
   name: string;
   prefix?: string;
   field?: string;
-  basic?: { usernameField: string; passwordField: string; allowEmptyPassword?: boolean };
+  basic?: BasicAuthPair & { alternate?: BasicAuthPair[] };
   extraHeaders?: { name: string; field?: string; value?: string; prefix?: string }[];
   queryParams?: { name: string; field?: string; value?: string }[];
 };
@@ -68,6 +74,8 @@ export type Connector = {
   };
   credentialFields?: CredentialField[];
   requireAnyFields?: string[];
+  /** One of these field sets must be complete, e.g. API key SID + secret or account SID + auth token. */
+  requireFieldGroups?: string[][];
   baseUrlField?: string;
   hostTemplate?: string;
   allowAnyPublicHost?: boolean;

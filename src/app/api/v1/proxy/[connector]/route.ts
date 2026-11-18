@@ -28,6 +28,7 @@ import {
   recordAgentEvent,
   resourceTypeOf,
 } from "@/lib/agent-events";
+import { crossOrgActorName } from "@/lib/actor-name";
 
 export async function POST(req: Request, ctx: { params: Promise<{ connector: string }> }) {
   try {
@@ -123,6 +124,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         agentId: auth.agent.id,
         agentType: auth.agent.agentType,
         endUserId,
+        endUserExternalId,
         trustRelationshipId,
         requestId: requestId(),
         connectorSlug: connectorDef.slug,
@@ -153,6 +155,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         agentId: auth.agent.id,
         agentType: auth.agent.agentType,
         endUserId,
+        endUserExternalId,
         trustRelationshipId,
         requestId: requestId(),
         connectorSlug: connectorDef.slug,
@@ -271,6 +274,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         agentId: auth.agent.id,
         agentType: auth.agent.agentType,
         endUserId,
+        endUserExternalId,
         trustRelationshipId,
         requestId: rid,
         connectorSlug: connectorDef.slug,
@@ -287,7 +291,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         environmentId: auth.environment.id,
         actorType: "agent",
         actorId: auth.agent.id,
-        actorName: auth.agent.name,
+        actorName: crossOrgActorName(auth.agent.name, auth.agent.externalOrgName),
         agentId: auth.agent.id,
         action: connectorDef.sandbox ? "sandbox.call" : "proxy.call",
         resourceType: "connector",
@@ -347,6 +351,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         resource: body.resource,
         requestId: rid,
         reason: decision.reason,
+        endUserId,
+        endUserExternalId,
+        trustRelationshipId,
       });
       await recordAgentEvent({
         environmentId: auth.environment.id,
@@ -354,6 +361,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ connector: str
         agentId: auth.agent.id,
         agentType: auth.agent.agentType,
         endUserId,
+        endUserExternalId,
         trustRelationshipId,
         requestId: rid,
         connectorSlug: connectorDef.slug,

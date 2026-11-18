@@ -294,9 +294,13 @@ export function PlaygroundClient({
               </p>
             ) : (
               <div className="space-y-4">
-                {state.provisioned ? (
+                {state.provisionedConnection || state.provisionedGrant ? (
                   <p className="border border-black/45 bg-[#faf9f6] px-3 py-2 text-[11px] leading-relaxed text-black/65 dark:border-white/40 dark:bg-background dark:text-muted-foreground">
-                    Provisioned the sandbox connection and a sandbox-only grant for this agent.
+                    {state.provisionedConnection && state.provisionedGrant
+                      ? "Provisioned the sandbox connection and a sandbox-only grant for this agent."
+                      : state.provisionedConnection
+                        ? "Provisioned the sandbox connection. This agent already had a sandbox-only grant."
+                        : "Provisioned a sandbox-only grant for this agent. The sandbox connection already existed."}
                   </p>
                 ) : null}
 

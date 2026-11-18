@@ -96,6 +96,7 @@ export default async function ConsentPage({
       connectorRows.push({ slug, name: slug, connected: false, account: null });
     }
   }
+  const redirectHost = new URL(data.request.redirectUri).hostname;
 
   return (
     <Shell productName={branding.productName} logoDataUri={branding.logoDataUri} accent={branding.primaryColor}>
@@ -109,6 +110,14 @@ export default async function ConsentPage({
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           Permission request · expires {data.request.expiresAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
         </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          Returns to {redirectHost}
+        </span>
+        {branding.domainVerifiedAt && branding.verifiedDomain ? (
+          <span className="border border-emerald-800/30 bg-emerald-50 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-900">
+            Verified domain · {branding.verifiedDomain}
+          </span>
+        ) : null}
       </div>
 
       <h1 className="mt-6 font-display text-[clamp(2.4rem,5vw,4rem)] leading-[0.95] tracking-tight">

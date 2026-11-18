@@ -19,7 +19,7 @@ export default async function ConsentSettingsPage({
   const ctx = await getContext();
   const query = await searchParams;
   const branding = await db.consentBranding.findUnique({ where: { projectId: ctx.project.id } });
-  const canEdit = ctx.can("manage_agents");
+  const canEdit = ctx.can("manage_security");
   const redirects = branding ? (JSON.parse(branding.allowedRedirectUrisJson) as string[]) : [];
   const scopes = branding ? (JSON.parse(branding.allowedScopesJson) as string[]) : ["*"];
   const accent = branding?.primaryColor ?? "#111111";
@@ -156,7 +156,7 @@ export default async function ConsentSettingsPage({
               name="consentText"
               rows={6}
               required
-              maxLength={5000}
+              maxLength={1000}
               defaultValue={
                 branding?.consentText ??
                 `${ctx.project.name} asks the agent you choose to act on your behalf, only through the accounts you connect, until the permission expires or you revoke it.`
@@ -164,8 +164,8 @@ export default async function ConsentSettingsPage({
               className="w-full resize-y border border-black/45 bg-[#faf9f6] px-2.5 py-2 text-[12px] leading-relaxed outline-none focus:border-black dark:border-white/40 dark:bg-background"
             />
             <p className="mt-2 text-[11px] text-black/55 dark:text-muted-foreground">
-              The version saved with each consent is the version the end user saw. Editing the text creates a new version; it
-              never rewrites history.
+              Up to 1,000 characters. The version saved with each consent is the version the end user saw. Editing the text
+              creates a new version; it never rewrites history.
             </p>
           </Panel>
 

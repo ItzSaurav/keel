@@ -56,6 +56,7 @@ test("the envelope carries exactly the documented fields", () => {
     "contributes",
     "credentialId",
     "endUserId",
+    "endUserExternalId",
   ]);
 });
 
@@ -75,6 +76,7 @@ test("the row builder applies defaults and rejects unknown enums", () => {
   assert.equal(row.contributes, false);
   assert.equal(row.credentialId, null);
   assert.equal(row.endUserId, null);
+  assert.equal(row.endUserExternalId, null);
 
   const fallback = buildAgentEventRow({
     ...BASE,
@@ -319,13 +321,17 @@ test("retention runs nightly at 400 days and the migration matches the model", (
   );
   const migration = readSource("prisma/migrations/20261112100300_add_agent_events/migration.sql");
   const consentMigration = readSource("prisma/migrations/20261113100000_add_end_user_consent/migration.sql");
+  const trustContextMigration = readSource("prisma/migrations/20261116120000_add_approval_trust_context/migration.sql");
   for (const field of AGENT_EVENT_FIELDS) {
     assert.ok(
-      migration.includes(`"${field}"`) || consentMigration.includes(`"${field}"`),
+      migration.includes(`"${field}"`) ||
+        consentMigration.includes(`"${field}"`) ||
+        trustContextMigration.includes(`"${field}"`),
       `migration is missing ${field}`,
     );
   }
   assert.match(consentMigration, /ALTER TABLE "AgentEvent" ADD COLUMN\s+"endUserId" TEXT/);
+  assert.match(trustContextMigration, /ALTER TABLE "AgentEvent" ADD COLUMN\s+"endUserExternalId" TEXT/);
   assert.match(migration, /CREATE INDEX "AgentEvent_environmentId_occurredAt_idx"/);
   assert.match(migration, /CREATE INDEX "AgentEvent_agentId_occurredAt_idx"/);
   assert.match(migration, /CREATE INDEX "AgentEvent_organizationId_occurredAt_idx"/);

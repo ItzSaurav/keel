@@ -7,6 +7,7 @@ import {
   handleApiError,
   parseJson,
 } from "@/lib/api";
+import { crossOrgActorName } from "@/lib/actor-name";
 import { auditEvent } from "@/lib/audit";
 import { signAgentToken } from "@/lib/jwt";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
       environmentId: shadow.environmentId,
       actorType: "agent",
       actorId: caller.id,
-      actorName: `${shadow.name} (via ${shadow.externalOrgName ?? "external organization"})`,
+      actorName: crossOrgActorName(shadow.name, shadow.externalOrgName ?? "external organization"),
       agentId: shadow.id,
       action: "token.issued",
       resourceType: "token",

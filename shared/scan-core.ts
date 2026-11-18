@@ -20,6 +20,7 @@ type PatternFile = {
   version: number;
   patterns: SecretPattern[];
   groups: Record<string, string[]>;
+  groupAlternatives?: Record<string, string[][]>;
 };
 
 const DATA = patternData as unknown as PatternFile;
@@ -27,6 +28,7 @@ const DATA = patternData as unknown as PatternFile;
 export const SECRET_PATTERN_VERSION = DATA.version;
 export const SECRET_PATTERNS: SecretPattern[] = DATA.patterns;
 export const CREDENTIAL_GROUPS: Record<string, string[]> = DATA.groups;
+export const CREDENTIAL_GROUP_ALTERNATIVES: Record<string, string[][]> = DATA.groupAlternatives ?? {};
 
 const COMPILED = SECRET_PATTERNS.map((pattern) => ({
   pattern,
@@ -331,27 +333,29 @@ export function groupFindings(findings: EnvFinding[]): FindingGroup[] {
       continue;
     }
 
+    const alternatives = CREDENTIAL_GROUP_ALTERNATIVES[connector]?.length
+      ? CREDENTIAL_GROUP_ALTERNATIVES[connector]
+      : [required];
+    const groupFields = [...new Set(alternatives.flat())];
     const fields: Record<string, string> = {};
     const chosen: EnvFinding[] = [];
-    const missing: string[] = [];
     const consumed = new Set<EnvFinding>();
-    for (const key of required) {
-      const finding = list.find((entry) => entry.field === key && !consumed.has(entry));
-      if (!finding) {
-        missing.push(key);
-        continue;
-      }
+    for (const finding of list) {
+      if (!finding.field || !groupFields.includes(finding.field) || consumed.has(finding)) continue;
       consumed.add(finding);
       chosen.push(finding);
-      fields[key] = finding.value;
+      fields[finding.field] = finding.value;
     }
+    const best = alternatives
+      .map((group) => ({ group, missing: group.filter((key) => !fields[key]) }))
+      .sort((a, b) => a.missing.length - b.missing.length)[0];
     groups.push({
       connector,
       label: chosen[0]?.label ?? connector,
       findings: chosen,
       fields,
-      missing,
-      complete: missing.length === 0,
+      missing: best.missing,
+      complete: best.missing.length === 0,
     });
     for (const leftover of list) {
       if (consumed.has(leftover)) continue;
