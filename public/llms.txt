@@ -1,0 +1,20 @@
+# Authab / Keel
+
+> Identity, vault, policy, and audit platform for AI agents.
+
+## Overview
+Authab gives every AI agent a short-lived cryptographic identity, an encrypted credential vault it can use but never read, and permissions approved by humans.
+
+## Quick Links
+- [Documentation](/docs): Architectural guides and developer tutorials.
+- [API Reference](/docs/api): OpenAPI reference for identity, credentials, proxy, and audit.
+- [MCP Gateway](/docs/mcp): Model Context Protocol gateway and tools.
+- [System Status](/api/status): Real-time system health and component status.
+- [Full LLM Context](/llms-full.txt): Comprehensive schema and endpoint details.
+
+## Core Capabilities
+- **Agent Identity**: Ed25519-signed agent identities, EdDSA tokens, and JWKS verification.
+- **Credential Vault**: AES-256-GCM encrypted credential vault with zero plaintext exposure to models.
+- **Policy Engine**: Fine-grained, deny-by-default permission checks with human-in-the-loop approvals.
+- **Audit Pipeline**: Cryptographically hash-chained, tamper-evident audit logs with SIEM streaming.
+- **Egress Proxy**: Enforced SSRF guards, rate limits, and audit capture for agent web requests.

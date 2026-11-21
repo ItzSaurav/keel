@@ -20,6 +20,9 @@ export const metadata: Metadata = {
     "Give every AI agent a short-lived cryptographic identity, a vault it can use but never read, and permissions a human approved.",
 };
 
+// Enable Incremental Static Regeneration (ISR) so high-concurrency requests are served instantly from cache
+export const revalidate = 3600;
+
 export default function LandingPage() {
   return (
     <main id="main-content" tabIndex={-1} className="relative">
