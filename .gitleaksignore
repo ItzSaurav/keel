@@ -1,0 +1,32 @@
+# Gitleaks ignore list
+# Whitelists verified false-positive findings: unit test fixtures, mock data, documentation samples,
+# and initial commit historical dev-only keys.
+
+# Unit test fixtures & test pattern validation
+9ed3a4f335e5a48dd3baad57ffe399e4df6fa6ea:tests/secret-patterns.test.ts:generic-api-key:270
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:discord-client-id:58
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:64
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:72
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:78
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:81
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:85
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:208
+ba44442b4b0fb0bcb77de8e0f9b92b847d7a085c:tests/secret-patterns.test.ts:generic-api-key:219
+0cb0658d987b2150c69045afbac16414ee798fa2:tests/identity-document.test.ts:private-key:210
+d69f8f4abbf771de53ba5c20dcbca3f755a60fa1:tests/totp.test.ts:generic-api-key:6
+082d38850ae4e412c2c1a24eb13283c8d3088c05:tests/dpop.test.ts:generic-api-key:69
+3d235148ae9d510de61786fe625652eee8137319:tests/anti-breach.test.ts:stripe-access-token:179
+3d235148ae9d510de61786fe625652eee8137319:tests/anti-breach.test.ts:stripe-access-token:202
+3d235148ae9d510de61786fe625652eee8137319:tests/anti-breach.test.ts:stripe-access-token:203
+
+# Documentation code samples & curl examples
+bd02630873302a531c95fa2f99e2e5bf3b968724:src/app/docs/api/page.tsx:generic-api-key:220
+fbb5a0bc1b1731d6d21e3e40c072b2109de20201:src/app/docs/mcp/page.tsx:curl-auth-header:122
+24ba59fc3022ec8bce88f63d15be6a012407671d:src/app/docs/concepts/identity/page.tsx:generic-api-key:83
+
+# Example configuration template
+24ba59fc3022ec8bce88f63d15be6a012407671d:.env.example:generic-api-key:7
+
+# Historical initial commit dev fallback key in src/lib/jwt.ts (refactored to secrets.ts in subsequent commits)
+24ba59fc3022ec8bce88f63d15be6a012407671d:src/lib/jwt.ts:private-key:17
+24ba59fc3022ec8bce88f63d15be6a012407671d:src/lib/jwt.ts:private-key:30
