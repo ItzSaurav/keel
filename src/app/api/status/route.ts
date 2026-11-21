@@ -3,16 +3,33 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+interface CachedCheck {
+  timestamp: number;
+  database: boolean;
+  environments: number;
+}
+
+let cachedCheck: CachedCheck | null = null;
+const CACHE_TTL_MS = 5000; // 5-second in-memory TTL prevents DB saturation under high-frequency monitoring
+
 export async function GET() {
   const started = Date.now();
+  const now = started;
+
   let database = false;
   let environments = 0;
 
-  try {
-    environments = await db.environment.count();
-    database = true;
-  } catch {
-    database = false;
+  if (cachedCheck && now - cachedCheck.timestamp < CACHE_TTL_MS) {
+    database = cachedCheck.database;
+    environments = cachedCheck.environments;
+  } else {
+    try {
+      environments = await db.environment.count();
+      database = true;
+    } catch {
+      database = false;
+    }
+    cachedCheck = { timestamp: now, database, environments };
   }
 
   return NextResponse.json(
@@ -49,6 +66,10 @@ export async function GET() {
         },
       ],
     },
-    { headers: { "cache-control": "no-store" } },
+    {
+      headers: {
+        "cache-control": "public, s-maxage=5, stale-while-revalidate=10",
+      },
+    },
   );
 }
