@@ -1,0 +1,27 @@
+# Authab / Keel - Full Documentation for LLM Agents
+
+> Comprehensive specification, architecture, and API index for Authab / Keel agent identity and governance platform.
+
+## Architecture
+
+Authab is structured around five foundational systems:
+1. **Agent Identity**: Ed25519-signed identity documents (`/.well-known/authab-identity`) with EdDSA JWT issuance, JWKS key rotation, and environment-scoped revocation feeds.
+2. **Credential Vault**: Sensitive credentials (OAuth tokens, API keys) encrypted with AES-256-GCM using tenant-isolated master keys. Plaintext credentials never touch agent runtime context.
+3. **Policy Engine**: Fine-grained, deny-by-default permission checks evaluated before every tool execution or outbound egress. High-risk actions require human approval workflows.
+4. **Agent Egress Proxy**: Outbound HTTP/REST requests initiated by agents pass through a hardened proxy with private-IP SSRF protection, DNS rebinding guards, and payload hashing.
+5. **Tamper-Evident Audit**: Every tool call, approval decision, policy evaluation, and revocation is recorded in a cryptographically hash-chained append-only audit stream.
+
+## Key HTTP API Endpoints
+
+### Identity & Public Keys
+- `GET /.well-known/jwks.json`: Public JWKS containing active and retired verification keys.
+- `GET /api/v1/agents/{id}/identity`: Retrieve signed EdDSA agent identity document.
+- `GET /api/v1/revocations`: Signed environment-scoped revocation feed supporting cursor pagination and ETag 304 caching.
+
+### Governance & Status
+- `GET /api/status`: System health, database connectivity, and component operational status.
+- `POST /api/v1/approvals`: Create or evaluate human-in-the-loop approval requests.
+- `GET /api/v1/audit`: Query tamper-evident audit logs with pagination and verification hashes.
+
+## MCP Gateway
+Authab exposes a Model Context Protocol (MCP) server for Claude Desktop, Cursor, and agent runtimes. Tools include vault credential binding, policy verification, and signed link generation.
